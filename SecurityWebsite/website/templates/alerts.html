@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Alerts – Security System</title>
+
+    <!-- Bootstrap -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Inter font -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Icons -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --bg-main: #101114;
+        --bg-surface: #1a1c1f;
+        --txt: #f2f4f8;
+        --accent: #22c1c3;
+        --accent-hover: #1ba3a5;
+        --badge-handgun: #dc3545;
+        --badge-loiter: #ffc107;
+        --badge-trespass: #0dcaf0;
+        --badge-default: #6c757d;
+      }
+      body {
+        background: var(--bg-main);
+        color: var(--txt);
+        font-family: "Inter", sans-serif;
+      }
+      .navbar-custom {
+        background: var(--bg-surface);
+      }
+      .nav-link {
+        color: var(--txt) !important;
+      }
+      .nav-link.active,
+      .nav-link:hover {
+        color: var(--accent) !important;
+      }
+
+      /* table */
+      .alerts-table {
+        min-width: 1000px;
+      }
+      .alerts-table thead th {
+        background: #0d0e11;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      tbody tr:hover {
+        background: #202227;
+      }
+
+      /* badges */
+      .b-handgun {
+        background: var(--badge-handgun);
+      }
+      .b-loiter {
+        background: var(--badge-loiter);
+        color: #000;
+      }
+      .b-trespass {
+        background: var(--badge-trespass);
+      }
+      .b-default {
+        background: var(--badge-default);
+      }
+
+      /* chips */
+      .chip {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+      .chip.active {
+        background: var(--accent);
+        color: #000;
+      }
+      .chip:hover {
+        background: var(--accent-hover);
+        color: #000;
+      }
+
+      /* drawer */
+      #drawer {
+        position: fixed;
+        right: -420px;
+        top: 0;
+        height: 100%;
+        width: 420px;
+        background: var(--bg-surface);
+        border-left: 1px solid #272a2f;
+        box-shadow: -4px 0 16px rgba(0, 0, 0, 0.7);
+        transition: right 0.3s;
+        z-index: 1040;
+        padding: 2rem;
+        overflow-y: auto;
+      }
+      #drawer.open {
+        right: 0;
+      }
+
+      /* mobile */
+      @media (max-width: 991px) {
+        .table-responsive {
+          display: none;
+        }
+        .alert-card {
+          background: var(--bg-surface);
+          border: 1px solid #272a2f;
+          border-radius: 0.75rem;
+          margin-bottom: 1rem;
+          padding: 1rem;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
+      <div class="container-fluid px-3">
+        <a
+          class="navbar-brand fw-semibold text-white"
+          href="{{ url_for('views.dashboard') }}"
+          >Security System</a
+        >
+        <button
+          class="navbar-toggler text-white"
+          data-bs-toggle="collapse"
+          data-bs-target="#navMenu"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMenu">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('views.dashboard') }}"
+                >Dashboard</a
+              >
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="{{ url_for('views.alerts') }}"
+                >Alerts</a
+              >
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('views.logs') }}">Logs</a>
+            </li>
+          </ul>
+          <span class="text-white me-3 small"
+            >Logged in as {{ session['user'] }}</span
+          >
+          <a
+            href="{{ url_for('auth.logout_view') }}"
+            class="btn btn-outline-light btn-sm"
+            >Logout</a
+          >
+        </div>
+      </div>
+    </nav>
+
+    <!-- FILTERS -->
+    <div class="container-fluid py-4">
+      <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+        <div class="chip active" data-type="all">All</div>
+        <div class="chip" data-type="handgun">Handgun</div>
+        <div class="chip" data-type="loitering">Assault</div>
+        <div class="chip" data-type="trespassing">Shoplifting</div>
+        <div class="chip" data-type="unread">Unread</div>
+      </div>
+
+      <!-- BULK -->
+      <div class="d-flex gap-2 mb-3">
+        <button id="bulk-read" class="btn btn-success btn-sm disabled">
+          <i class="bi bi-check2-all me-1"></i>Mark Read
+        </button>
+        <button id="bulk-unread" class="btn btn-secondary btn-sm disabled">
+          <i class="bi bi-envelope me-1"></i>Mark Unread
+        </button>
+        <button id="bulk-del" class="btn btn-danger btn-sm disabled">
+          <i class="bi bi-trash me-1"></i>Delete
+        </button>
+      </div>
+
+      <!-- DESKTOP TABLE -->
+      <div class="table-responsive">
+        <table class="table alerts-table table-dark align-middle">
+          <thead>
+            <tr>
+              <th style="width: 40px">
+                <input type="checkbox" id="sel-all" />
+              </th>
+              <th>Time</th>
+              <th>Camera</th>
+              <th>Type</th>
+              <th>Conf.</th>
+              <th>Status</th>
+              <th style="width: 40px"></th>
+            </tr>
+          </thead>
+          <tbody id="alert-body"></tbody>
+        </table>
+      </div>
+
+      <!-- MOBILE CARDS -->
+      <div id="mobile-list" class="d-lg-none"></div>
+    </div>
+
+    <!-- DRAWER -->
+    <div id="drawer">
+      <button
+        class="btn-close btn-close-white float-end"
+        id="drawer-close"
+      ></button>
+      <h5 class="fw-semibold">Alert Details</h5>
+
+      <table class="table table-dark table-borderless small mb-3">
+        <tbody>
+          <tr>
+            <th style="width: 120px">Time</th>
+            <td id="d-time"></td>
+          </tr>
+          <tr>
+            <th>Camera</th>
+            <td id="d-camera"></td>
+          </tr>
+          <tr>
+            <th>Type</th>
+            <td id="d-type"></td>
+          </tr>
+          <tr>
+            <th>Confidence</th>
+            <td id="d-conf"></td>
+          </tr>
+          <tr>
+            <th>Status</th>
+            <td id="d-status"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="d-flex gap-2 mb-3">
+        <button id="d-read" class="btn btn-success btn-sm flex-grow-1">
+          Mark Read
+        </button>
+        <button id="d-unread" class="btn btn-secondary btn-sm flex-grow-1">
+          Mark Unread
+        </button>
+        <button id="d-delete" class="btn btn-danger btn-sm flex-grow-1">
+          Delete
+        </button>
+      </div>
+
+      <!-- screenshot goes here -->
+      <div id="d-image" class="text-center mt-3"></div>
+    </div>
+
+    <!-- JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <script>
+      // -------- GLOBAL STATE --------
+      let alerts = [] // loaded from /api/alert/list
+      const tblBody = $("#alert-body")
+      const mobList = $("#mobile-list")
+      const bulkBtns = $("#bulk-read,#bulk-unread,#bulk-del")
+
+      // -------- DATA LOAD --------
+      async function fetchAlerts() {
+        const res = await fetch("/api/alert/list", {
+          credentials: "same-origin",
+        })
+        if (res.ok) alerts = await res.json()
+      }
+
+      // -------- RENDER --------
+      function render() {
+        tblBody.empty()
+        mobList.empty()
+        const filter = $(".chip.active").data("type")
+        alerts.forEach((a) => {
+          if (filter === "unread" && a.status !== "unread") return
+          if (
+            filter !== "all" &&
+            filter !== "unread" &&
+            a.label.toLowerCase() !== filter
+          )
+            return
+          const badgeCls =
+            {
+              handgun: "b-handgun",
+              loitering: "b-loiter",
+              trespassing: "b-trespass",
+            }[a.label.toLowerCase()] || "b-default"
+          const tr = `<tr data-id="${a.id}" class="${
+            a.status === "unread" ? "table-warning" : ""
+          }">
+          <td><input class="rowchk form-check-input" type="checkbox"></td>
+          <td>${a.timestamp}</td><td>${a.camera}</td>
+          <td><span class="badge ${badgeCls}">${a.label}</span></td>
+          <td>${a.confidence}%</td>
+          <td><span class="badge ${
+            a.status === "unread" ? "bg-secondary" : "bg-success"
+          }">${a.status}</span></td>
+          <td><i class="bi bi-chevron-right text-muted"></i></td>
+        </tr>`
+          tblBody.append(tr)
+
+          const card = `<div class="alert-card" data-id="${a.id}">
+          <div class="d-flex justify-content-between"><span>${
+            a.timestamp
+          }</span><span class="badge ${badgeCls}">${a.label}</span></div>
+          <div class="small text-muted mb-1">${a.camera}</div>
+          <div class="d-flex justify-content-between">
+            <small>${a.confidence}%</small>
+            <span class="badge ${
+              a.status === "unread" ? "bg-secondary" : "bg-success"
+            }">${a.status}</span>
+          </div>
+        </div>`
+          mobList.append(card)
+        })
+      }
+
+      async function init() {
+        await fetchAlerts()
+        render()
+      }
+      init()
+      setInterval(init, 10000) // poll every 10 s
+
+      // -------- UI EVENTS --------
+      // Filters
+      $(".chip").on("click", function () {
+        $(".chip").removeClass("active")
+        $(this).addClass("active")
+        render()
+      })
+
+      // Row selection
+      $(document).on("change", ".rowchk", () => {
+        const any = $(".rowchk:checked").length
+        bulkBtns.toggleClass("disabled", !any)
+      })
+      $("#sel-all").on("change", function () {
+        $(".rowchk").prop("checked", this.checked).trigger("change")
+      })
+
+      // Row / card click -> drawer
+      $(document).on("click", "tbody tr, .alert-card", function (e) {
+        if (e.target.type === "checkbox") return
+        const id = $(this).data("id")
+        const a = alerts.find((x) => x.id == id)
+        if (!a) return
+
+        $("#d-time").text(a.timestamp)
+        $("#d-camera").text(a.camera)
+        $("#d-type").text(a.label)
+        $("#d-conf").text(a.confidence + "%")
+        $("#d-status").text(a.status)
+        $("#drawer").addClass("open").data("id", id)
+
+        // 🔥 NEW: insert screenshot
+        if (a.image) {
+          $("#d-image").html(
+            `<img src="/static/screens/${a.image}" class="img-fluid rounded shadow">`
+          )
+        } else {
+          $("#d-image").html(`<p class="text-muted">No image available</p>`)
+        }
+      })
+
+      $("#drawer-close").on("click", () => $("#drawer").removeClass("open"))
+      $("#drawer").on("click", (e) => {
+        if (e.target.id === "drawer") $("#drawer").removeClass("open")
+      })
+
+      // --------  BULK + SINGLE ACTIONS --------
+      function sendBulk(ids, action) {
+        fetch("/api/alert/bulk", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids, action }),
+        })
+          .then((r) => r.json())
+          .then((r) => {
+            if (r.status === "ok") init()
+            else alert("Error: " + (r.error || "unknown"))
+          })
+          .catch((e) => alert("Network error: " + e))
+      }
+
+      bulkBtns.on("click", function () {
+        if ($(this).hasClass("disabled")) return
+        const action =
+          this.id.includes("read") && !this.id.includes("unread")
+            ? "read"
+            : this.id.includes("unread")
+            ? "unread"
+            : "delete"
+        const ids = $(".rowchk:checked")
+          .map((_, cb) => parseInt($(cb).closest("tr").data("id")))
+          .get()
+        sendBulk(ids, action)
+      })
+
+      $("#d-read,#d-unread,#d-delete").on("click", function () {
+        const id = $("#drawer").data("id")
+        if (!id) return
+        const action =
+          this.id.includes("read") && !this.id.includes("unread")
+            ? "read"
+            : this.id.includes("unread")
+            ? "unread"
+            : "delete"
+        sendBulk([id], action)
+        $("#drawer").removeClass("open")
+      })
+    </script>
+  </body>
+</html>

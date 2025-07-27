@@ -1,0 +1,20 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environments
+venv/
+.env
+
+# Ignore DB and instance folders
+*.db
+*.sqlite3
+instance/
+
+# Ignore Firebase credentials or secrets
+*.json
+
+# VSCode settings (optional)
+.vscode/
