@@ -1,204 +1,87 @@
-```markdown
-# 🔐 Proactive Threat Detection System (Raspberry Pi + Flask + YOLOv5)
+````markdown
+# 🔍 Raspberry-Pi Weapon-Alert System
 
-A real-time edge-based surveillance system that detects **handguns and knives**, saves annotated screenshots, logs alerts, and sends instant push notifications via **Telegram** — all powered by **YOLOv5**, a **Flask web dashboard**, and a **Raspberry Pi 4**.
-
----
-
-## 📸 System Overview
-
-- 🧠 **Raspberry Pi 4 (8GB)** runs an optimized YOLOv5s model for real-time weapon detection.
-- 💻 **Flask Web App** displays alerts, screenshots, camera feed, logs, and system metrics.
-- 🔔 **Telegram Bot** sends alerts with annotated images instantly.
-- 📷 **USB Camera** captures live video stream.
-- 💾 **Local SQLite DBs** store alert history and system logs.
+Real-time gun & knife detection that runs on a Raspberry Pi and shows alerts on a simple Flask web dashboard.
 
 ---
 
-## ⚙️ Hardware Setup
-
-| Component            | Purpose                     |
-| -------------------- | --------------------------- |
-| Raspberry Pi 4 (8GB) | Main compute & AI inference |
-| USB Camera           | Real-time video input       |
-| Flash Drive (USB)    | Storage for images & DBs    |
-| Power Supply         | Stable 5V/3A recommended    |
-| Wi-Fi Connection     | Local network communication |
+## What It Does
+1. **Pi grabs camera video** (USB / PiCam, ~10 FPS).
+2. **YOLOv5-s model** spots hand-guns & knives (≥ 70 % confidence).
+3. Saves an **annotated screenshot**.
+4. Sends the alert + image to a **Flask server** on your laptop/PC.
+5. Dashboard pops the alert and sends a **Telegram push**.
 
 ---
 
-## 🚀 Features
-
-- ✅ Detects **handguns and knives** using a custom YOLOv5s model
-- 🖼️ Saves **annotated screenshots** of threats above confidence threshold
-- 📡 Pushes alerts to Telegram in real-time
-- 🧠 Runs fully on **CPU**, optimized for Raspberry Pi
-- 🌐 Flask dashboard: camera feed, alert drawer, filter chips, Pi stats, logs
-- 📁 SQLite databases: `alerts.db` and `logs.db`
-- 📲 Responsive design: works on desktop & mobile
+## Hardware Needed
+| Item              | Notes               |
+|-------------------|---------------------|
+| Raspberry Pi 4/5  | 4 GB or 8 GB works  |
+| USB / Pi Camera   | 640 × 480 is fine   |
+| 5 V 3 A PSU       | Stable power        |
+| (Optional) Fan    | Keeps FPS steady    |
 
 ---
 
-## 🧱 Project Structure
-```
+## Quick Start
 
-SecuritySystem/
-├── website/ # Flask app
-│ ├── templates/ # HTML pages
-│ ├── static/ # JS/CSS + screenshots
-│ │ └── screens/ # saved alert images
-│ ├── views.py # API and route logic
-│ ├── utils.py # DB and Telegram helpers
-│ └── **init**.py # Flask app init
-├── web_stream.py # Raspberry Pi main script
-├── alerts.db / logs.db # SQLite databases
-├── best.pt # Trained YOLOv5s model (gun + knife)
-├── requirements.txt
-└── README.md
-
-````
-
----
-
-## 🧪 AI Model Details
-
-- YOLOv5s fine-tuned on ~2200 handgun + knife images
-- Dataset cleaned & relabeled (pistol: 0, knife: 1)
-- Training: 80 epochs, mAP@50 ≈ 0.97
-- Exported as TorchScript & ONNX (FP16)
-- Screenshot saved when confidence ≥ 70%
-
----
-
-## 📥 Installation (Web Server / Dashboard)
-
-> Requires: Python 3.8+, pip, virtualenv
-
+### 1. Clone & install (PC side)
 ```bash
-git clone https://github.com/your-user/threat-detection-pi.git
-cd threat-detection-pi
-python -m venv venv && source venv/bin/activate     # On Windows: venv\Scripts\activate
+git clone https://github.com/your-user/pi-weapon-alert.git
+cd pi-weapon-alert
+python -m venv venv && source venv/bin/activate   # Win: venv\Scripts\activate
 pip install -r requirements.txt
+export TG_TOKEN="YOUR_BOT_TOKEN"
+export TG_CHAT="YOUR_CHAT_ID"
+python website/app.py --host 0.0.0.0 --port 5000
 ````
 
-### Set environment variables (or use `.env`)
+### 2. Set up Pi
 
 ```bash
-export TG_TOKEN="your-telegram-bot-token"
-export TG_CHAT="your-chat-id"
-```
-
-### Start Flask server
-
-```bash
-cd website
-python app.py
-```
-
----
-
-## 🤖 Raspberry Pi Setup
-
-### 1. Connect camera
-
-Plug a USB camera into the Pi.
-
-### 2. Install dependencies
-
-```bash
-sudo apt update && sudo apt install python3-pip
+scp web_stream.py best.pt pi@<pi-ip>:/home/pi/
+ssh pi@<pi-ip>
 pip install torch torchvision opencv-python requests
+python web_stream.py       # starts detection & sends alerts
 ```
 
-### 3. Transfer files
-
-```bash
-scp web_stream.py pi@<pi-ip>:/home/pi/
-scp best.pt       pi@<pi-ip>:/home/pi/
-```
-
-### 4. Run detection
-
-```bash
-python3 web_stream.py
-```
-
-This will:
-
-- Start the camera feed
-- Run YOLOv5 detection
-- Send a POST with label/confidence + screenshot to `/api/alert`
+Open browser → `http://<pc-ip>:5000` to see the dashboard.
 
 ---
 
-## 📡 Alert API
+## Folder Overview
 
-```http
-POST /api/alert
-Headers: X-SEC-TOKEN: your-secret
-Body: form-data (label, confidence, camera, screenshot)
+```
+website/          # Flask app (HTML, CSS, JS, routes)
+web_stream.py     # Pi script: camera + YOLO + alert POST
+best.pt           # Trained YOLOv5-s weights (guns & knives)
+requirements.txt  # pip packages
 ```
 
 ---
 
-## 💬 Telegram Integration
+## Key Features
 
-- Create bot via [@BotFather](https://t.me/BotFather)
-- Get your `TG_TOKEN` and `chat_id`
-- Alerts with screenshots will be pushed instantly
-
----
-
-## 🧰 Environment Variables
-
-| Variable    | Description                          |
-| ----------- | ------------------------------------ |
-| `TG_TOKEN`  | Your Telegram bot token              |
-| `TG_CHAT`   | Your Telegram chat ID                |
-| `API_TOKEN` | Secret key for POST request security |
+* **Real-time detection** on low-cost hardware
+* **Screenshot evidence** stored automatically
+* **Telegram push** with image (free)
+* **Dark-mode dashboard**: live video, alerts, Pi metrics
+* All local — no cloud fees
 
 ---
 
-## 🧾 Sample Alert Flow
+## To-Do / Ideas
 
-1. Pi detects a handgun (76%)
-2. Captures a frame, saves screenshot
-3. Sends POST to Flask `/api/alert`
-4. Flask saves alert to DB, image to `static/screens`
-5. Alert appears in UI + Telegram notification sent
+* Quantise model (INT8) for higher FPS
+* Add email fallback
+* Auto-prune old screenshots
 
 ---
 
-## 🐛 Known Issues
+## License
 
-- Low FPS (\~5–7) on Pi 4 with YOLOv5s (CPU)
-- Telegram API blocked on slow/unstable connections
-- Use SD card or SSD for faster disk IO
-
----
-
-## 🛡️ Security Note
-
-- Never hard-code bot tokens or passwords
-- Use `.env` + `os.getenv()` and ensure `.env` is in `.gitignore`
-
----
-
-## 📜 License
-
-MIT License – free to use, modify, and distribute.
-
----
-
-## 🙌 Credits
-
-- YOLOv5 by Ultralytics
-- OpenCV for image processing
-- Flask for the dashboard
-- Telegram Bot API
+MIT
 
 ```
-
-You can save this content as `README.md` in your repo root and modify the repo link, author, or model details as needed.
-Let me know if you want to add demo images, architecture diagrams, or video walkthroughs.
 ```
